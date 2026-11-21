@@ -432,6 +432,8 @@ document.addEventListener('keydown',e=>{
     e.preventDefault();next();
   }else if(e.key==='Enter' && data.session?.phase==='roundEnd'){
     e.preventDefault();continueRound();
+  }else if(data.session?.mode==='choice' && data.session?.phase==='question' && /^[1-4]$/.test(e.key) && !e.altKey && !e.ctrlKey && !e.metaKey){
+    e.preventDefault();answerChoice(Number(e.key)-1);
   }
 });
 $('resetBtn').addEventListener('click',startOver);
