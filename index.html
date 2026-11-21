@@ -253,30 +253,67 @@ function pickWords() {
   data.used = [...new Set([...data.used, ...selected])];
   return shuffle(selected);
 }
-function newSession() {
+function newSession(){
   const deck=pickWords();
-  data.session={deck,queue:[...deck],index:0,pending:[],learned:[],round:1,phase:'question',feedback:null,answers:0,mistakes:0,roundMistakes:0};
+  data.session={deck,queue:[...deck],index:0,pending:[],learned:[],round:1,mode:'choice',choiceOptions:null,phase:'question',feedback:null,answers:0,mistakes:0,roundMistakes:0};
   save();render();
 }
-function answer(kind) {
+function shortMeaning(word){return translations(word)[0]||word.ru;}
+function isVerbMeaning(text){return /(?:ть|ти|чь|ться|чься)$/u.test(normalize(text).split(' ')[0]||'');}
+function generateChoiceOptions(en,s){
+  const target=LOOKUP.get(en),right=shortMeaning(target);
+  const options=[{label:right,correct:true}];
+  const seen=new Set([normalize(right)]);
+  const keys=shuffle([...new Set([...s.deck,...WORD_BANK.map(w=>w.en)])]);
+  const targetIsVerb=isVerbMeaning(right);
+  for(const sameKind of [true,false]){
+    for(const key of keys){
+      if(options.length===4)break;
+      if(key===en)continue;
+      const word=LOOKUP.get(key);
+      if(!word)continue;
+      const label=shortMeaning(word),norm=normalize(label);
+      if(!norm||norm.length>58||seen.has(norm))continue;
+      if(sameKind&&isVerbMeaning(label)!==targetIsVerb)continue;
+      if(isCorrect(target,label))continue;
+      seen.add(norm);options.push({label,correct:false});
+    }
+    if(options.length===4)break;
+  }
+  if(options.length!==4)throw new Error('Не удалось сформировать варианты перевода');
+  return shuffle(options);
+}
+function answerChoice(index){
   const s=data.session;
-  if (!s || s.phase!=='question') return;
+  if(!s||s.phase!=='question'||s.mode!=='choice')return;
+  const chosen=index>=0?s.choiceOptions?.[index]:null;
+  if(index>=0&&!chosen)return;
+  const correct=!!chosen?.correct;
+  s.answers++;
+  if(!correct){s.mistakes++;s.roundMistakes++;}
+  s.feedback={kind:correct?'choiceCorrect':index<0?'choiceUnknown':'choiceWrong',input:chosen?.label||'',selected:index};
+  s.phase='feedback';save();render();
+}
+function answer(kind){
+  const s=data.session;
+  if(!s||s.phase!=='question'||s.mode!=='typing')return;
   const input=kind==='unknown'?'':($('answerInput')?.value||'').trim();
-  if(kind==='typed' && !input){
-    const hint=$('inputHint'); if(hint){hint.textContent='Введи перевод или нажми «Не знаю».';hint.classList.add('error');}
+  if(kind==='typed'&&!input){
+    const hint=$('inputHint');
+    if(hint){hint.textContent='Введи перевод или нажми «Не знаю».';hint.classList.add('error');}
     $('answerInput')?.focus();return;
   }
   const en=s.queue[s.index];
-  const correct=kind==='typed' && isCorrect(LOOKUP.get(en), input);
+  const correct=kind==='typed'&&isCorrect(LOOKUP.get(en),input);
   s.answers++;
-  if(correct){s.learned.push(en);}
+  if(correct){if(!s.learned.includes(en))s.learned.push(en);}
   else{s.pending.push(en);s.mistakes++;s.roundMistakes++;}
   s.feedback={kind:correct?'correct':kind==='unknown'?'unknown':'incorrect',input};
   s.phase='feedback';save();render();
 }
 function overrideAnswer(){
   const s=data.session;
-  if(!s||s.phase!=='feedback'||s.feedback?.kind!=='incorrect')return;
+  if(!s||s.mode!=='typing'||s.phase!=='feedback'||s.feedback?.kind!=='incorrect')return;
   const en=s.queue[s.index];
   s.pending=s.pending.filter(id=>id!==en);
   if(!s.learned.includes(en))s.learned.push(en);
@@ -287,24 +324,32 @@ function overrideAnswer(){
 function next(){
   const s=data.session;
   if(!s||s.phase!=='feedback')return;
-  if(s.index+1<s.queue.length){s.index++;s.feedback=null;s.phase='question';}
-  else if(s.pending.length){
-    s.queue=shuffle(s.pending);s.pending=[];s.index=0;s.feedback=null;s.phase='roundEnd';
-  } else {
-    s.feedback=null;s.phase='complete';data.games++;
+  if(s.index+1<s.queue.length){
+    s.index++;s.feedback=null;s.choiceOptions=null;s.phase='question';
+  }else if(s.mode==='choice'){
+    s.queue=shuffle(s.queue.filter(en=>!s.learned.includes(en)));
+    s.pending=[];s.index=0;s.feedback=null;s.choiceOptions=null;
+    s.mode='typing';s.phase='roundEnd';
+  }else if(s.pending.length){
+    s.queue=shuffle(s.pending);s.pending=[];s.index=0;
+    s.feedback=null;s.choiceOptions=null;
+    s.mode='choice';s.phase='roundEnd';s.round++;s.roundMistakes=0;
+  }else{
+    s.feedback=null;s.choiceOptions=null;s.phase='complete';data.games++;
   }
   save();render();
 }
 function continueRound(){
-  const s=data.session;if(!s||s.phase!=='roundEnd')return;
-  s.round++;s.roundMistakes=0;s.phase='question';save();render();
+  const s=data.session;
+  if(!s||s.phase!=='roundEnd')return;
+  s.phase='question';save();render();
 }
 function startOver(){
   const s=data.session;
-  if (!s || s.phase==='complete') {newSession(); return;}
+  if(!s||s.phase==='complete'){newSession();return;}
   if(!window.confirm('Сбросить прогресс и начать ЭТИ ЖЕ 50 слов заново? Новые слова не добавятся.'))return;
   const deck=[...s.deck];
-  data.session={deck,queue:[...deck],index:0,pending:[],learned:[],round:1,phase:'question',feedback:null,answers:0,mistakes:0,roundMistakes:0};
+  data.session={deck,queue:[...deck],index:0,pending:[],learned:[],round:1,mode:'choice',choiceOptions:null,phase:'question',feedback:null,answers:0,mistakes:0,roundMistakes:0};
   save();render();
 }
 function escapeHTML(str){return String(str).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
