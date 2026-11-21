@@ -361,43 +361,62 @@ function updateStats(){
   $('progressFill').style.width=`${n/SESSION_SIZE*100}%`;
   $('progress').setAttribute('aria-valuenow',String(n));
   $('roundStat').textContent=s.round;
-  $('positionStat').textContent=s.phase==='complete'?'—':s.phase==='roundEnd'?`✓ ${s.queue.length} на повтор`:`${s.index+1} / ${s.queue.length}`;
+  $('positionStat').textContent=s.phase==='complete'?'—':s.phase==='roundEnd'?`${s.queue.length} к этапу`:`${s.mode==='choice'?'Выбор':'Ввод'} ${s.index+1}/${s.queue.length}`;
   $('mistakesStat').textContent=s.mistakes;
   $('gamesStat').textContent=data.games;
 }
 function render(){
-  const s=data.session; if(!s)return;
+  const s=data.session;
+  if(!s)return;
   updateStats();
   const game=$('game');
   if(s.phase==='roundEnd'){
-    game.innerHTML=`<div class="center-screen"><div class="center-icon">↻</div><div class="hero-label">КРУГ ${s.round} ЗАВЕРШЁН</div><h2>Пора закрепить знания</h2><p>Правильные слова уже убраны. В следующем круге будут <strong>только ${s.queue.length} ${plural(s.queue.length,'слово','слова','слов')}</strong>, которые пока не удалось выучить.</p><div class="center-visual"><div class="mini-tile"><span>${s.learned.length}</span><small>выучено из 50</small></div><div class="mini-tile"><span>${s.queue.length}</span><small>на повторение</small></div></div><div class="center-actions"><button class="btn btn-primary" id="continueRound">Повторить ${s.queue.length} ${plural(s.queue.length,'слово','слова','слов')} →</button></div></div>`;
-    $('continueRound').addEventListener('click',continueRound);return;
+    const typing=s.mode==='typing';
+    const text=typing
+      ?'Ты уже видел варианты ответов. Теперь введи перевод для '+s.queue.length+' '+plural(s.queue.length,'слова','слов','слов')+'. Правильный ввод убирает слово из партии.'
+      :'В этом круге будут только '+s.queue.length+' '+plural(s.queue.length,'оставшееся слово','оставшихся слова','оставшихся слов')+'. Сначала выбери перевод, затем напиши его.';
+    game.innerHTML=`<div class="center-screen"><div class="center-icon">${typing?'✍':'↻'}</div><div class="hero-label">${typing?'ЭТАП 2 / 2 · ВСПОМИНАНИЕ':'ЭТАП 1 / 2 · УЗНАВАНИЕ'}</div><h2>${typing?'Теперь напиши перевод':'Повторим оставшиеся слова'}</h2><p>${text}</p><div class="center-visual"><div class="mini-tile"><span>${s.learned.length} / 50</span><small>уже выучено</small></div><div class="mini-tile"><span>${s.queue.length}</span><small>осталось в партии</small></div></div><div class="center-actions"><button class="btn btn-primary" id="continueRound">${typing?'Перейти к вводу →':'Выбрать из 4 вариантов →'}</button></div></div>`;
+    $('continueRound').addEventListener('click',continueRound);
+    return;
   }
   if(s.phase==='complete'){
-    game.innerHTML=`<div class="center-screen"><div class="center-icon">🏆</div><div class="hero-label">ПАРТИЯ ПРОЙДЕНА</div><h2>Все 50 слов выучены!</h2><p>Ни одного слова не осталось. Теперь можно взять следующие <strong>50 новых слов</strong> из базы.</p><div class="center-visual"><div class="mini-tile"><span>50 / 50</span><small>выучено</small></div><div class="mini-tile"><span>${s.round}</span><small>${plural(s.round,'круг','круга','кругов')}</small></div><div class="mini-tile"><span>${s.mistakes}</span><small>${plural(s.mistakes,'ошибка','ошибки','ошибок')}</small></div></div><div class="center-actions"><button class="btn btn-primary" id="newGame">Следующие 50 слов →</button></div></div>`;
-    $('newGame').addEventListener('click',newSession);return;
+    game.innerHTML=`<div class="center-screen"><div class="center-icon">🏆</div><div class="hero-label">ПАРТИЯ ПРОЙДЕНА</div><h2>Все 50 слов выучены!</h2><p>Ты прошёл выбор из четырёх вариантов и закрепил слова письменными ответами. Можно брать следующие <strong>50 новых слов</strong> из базы.</p><div class="center-visual"><div class="mini-tile"><span>50 / 50</span><small>выучено</small></div><div class="mini-tile"><span>${s.round}</span><small>${plural(s.round,'цикл','цикла','циклов')}</small></div><div class="mini-tile"><span>${s.mistakes}</span><small>${plural(s.mistakes,'ошибка','ошибки','ошибок')}</small></div></div><div class="center-actions"><button class="btn btn-primary" id="newGame">Следующие 50 слов →</button></div></div>`;
+    $('newGame').addEventListener('click',newSession);
+    return;
   }
-  const en=s.queue[s.index];const word=LOOKUP.get(en);
+  const en=s.queue[s.index];
+  const word=LOOKUP.get(en);
   const feedback=s.phase==='feedback';
-  const correct=feedback&&['correct','accepted'].includes(s.feedback.kind);
-  game.innerHTML=`<div class="card-top"><div class="eyebrow">ПЕРЕВЕДИ НА РУССКИЙ</div><div class="round-pill">КРУГ ${s.round} · ${s.index+1} / ${s.queue.length}</div></div>
-  <div class="word-box"><div class="word" lang="en">${escapeHTML(en)}</div><button id="speak" class="speak" type="button"><span class="speaker">◖))</span> Послушать произношение</button></div>
+  const choice=s.mode==='choice';
+  if(choice && !s.choiceOptions){
+    s.choiceOptions=generateChoiceOptions(en,s);
+    save();
+  }
+  const correct=feedback&&['correct','accepted','choiceCorrect'].includes(s.feedback.kind);
+  game.innerHTML=`<div class="card-top"><div class="eyebrow">${choice?'ЭТАП 1 · ВЫБЕРИ ПЕРЕВОД':'ЭТАП 2 · НАПИШИ ПЕРЕВОД'}</div><div class="round-pill">КРУГ ${s.round} · ${s.index+1} / ${s.queue.length}</div></div>
+  <div class="word-box"><div class="mode-banner">${choice?'① УЗНАВАНИЕ · 4 ВАРИАНТА':'② ВСПОМИНАНИЕ · БЕЗ ПОДСКАЗОК'}</div><div class="word" lang="en">${escapeHTML(en)}</div><button id="speak" class="speak" type="button"><span class="speaker">◖))</span> Послушать произношение</button></div>
   <div class="answer-section" id="answerSection"></div>`;
   $('speak').addEventListener('click',()=>speak(en));
   const area=$('answerSection');
   if(!feedback){
-    area.innerHTML=`<form id="answerForm" autocomplete="off"><label class="field-label" for="answerInput">Как это переводится?</label><div class="input-wrap"><input id="answerInput" class="answer-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Напиши перевод на русском..." maxlength="180" aria-label="Перевод слова"></div><div class="actions"><button class="btn btn-primary" type="submit">Проверить ответ →</button><button id="unknownBtn" class="btn btn-ghost" type="button">Не знаю</button></div><p class="hint" id="inputHint">Подойдут разные корректные значения слова — даже если они отличаются от первого перевода.</p></form>`;
-    $('answerForm').addEventListener('submit',ev=>{ev.preventDefault();answer('typed');});
-    $('unknownBtn').addEventListener('click',()=>answer('unknown'));
-    if(document.activeElement?.tagName!=='BUTTON')setTimeout(()=>$('answerInput')?.focus({preventScroll:true}),0);
-  } else {
+    if(choice){
+      area.innerHTML=`<div class="field-label">Выбери правильный перевод на русский</div><div class="choice-grid">${s.choiceOptions.map((option,i)=>`<button class="choice" type="button" data-option="${i}"><span class="choice-num">${i+1}</span><span>${escapeHTML(option.label)}</span></button>`).join('')}</div><div class="actions"><button id="choiceUnknown" class="btn btn-ghost" type="button">Не знаю</button></div><p class="hint">Нажимай 1–4 на клавиатуре. Выбор ещё не удаляет слово — затем ты напишешь перевод сам.</p>`;
+      area.querySelectorAll('[data-option]').forEach(btn=>btn.addEventListener('click',()=>answerChoice(Number(btn.dataset.option))));
+      $('choiceUnknown').addEventListener('click',()=>answerChoice(-1));
+    }else{
+      area.innerHTML=`<form id="answerForm" autocomplete="off"><label class="field-label" for="answerInput">Как это переводится?</label><div class="input-wrap"><input id="answerInput" class="answer-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Напиши перевод на русском..." maxlength="180" aria-label="Перевод слова"></div><div class="actions"><button class="btn btn-primary" type="submit">Проверить ответ →</button><button id="unknownBtn" class="btn btn-ghost" type="button">Не знаю</button></div><p class="hint" id="inputHint">Правильно ввёл — слово окончательно исчезает из партии.</p></form>`;
+      $('answerForm').addEventListener('submit',ev=>{ev.preventDefault();answer('typed');});
+      $('unknownBtn').addEventListener('click',()=>answer('unknown'));
+      if(document.activeElement?.tagName!=='BUTTON')setTimeout(()=>$('answerInput')?.focus({preventScroll:true}),0);
+    }
+  }else{
     const f=s.feedback;
-    const label=f.kind==='correct'?'Правильно!':f.kind==='accepted'?'Засчитано!':f.kind==='unknown'?'Теперь запоминаем':'Пока не угадал';
+    const label=f.kind==='choiceCorrect'?'Правильный вариант!':f.kind==='choiceWrong'?'Не тот вариант':f.kind==='choiceUnknown'?'Запоминаем слово':f.kind==='correct'?'Правильно!':f.kind==='accepted'?'Засчитано!':f.kind==='unknown'?'Теперь запоминаем':'Пока не угадал';
     const mark=correct?'✓':'↻';
-    const note=correct?'Это слово больше не появится в текущей партии.':'Слово останется в партии и вернётся в следующем круге.';
-    const typed=f.kind==='incorrect'?`<p class="feedback-note">Твой ответ: «${escapeHTML(f.input)}»</p>`:'';
+    const note=choice?'Слово пока остаётся. На следующем этапе тебе нужно будет написать его перевод самому.':correct?'Отлично! Это слово больше не появится в текущей партии.':'Слово останется и вернётся в следующем круге.';
+    const chosen=['incorrect','choiceWrong'].includes(f.kind)?`<p class="feedback-note">Твой ответ: «${escapeHTML(f.input)}»</p>`:'';
     const override=f.kind==='incorrect'?`<button class="override" id="overrideBtn">Мой вариант тоже правильный — засчитать</button>`:'';
-    area.innerHTML=`<div class="feedback ${correct?'good':'bad'}"><div class="feedback-title">${mark} ${label}</div><div class="translation-label">ПРАВИЛЬНЫЙ ПЕРЕВОД</div><div class="translation">${escapeHTML(word.ru)}</div>${typed}<p class="feedback-note">${note}</p>${override}</div><button id="nextBtn" class="btn btn-primary next-btn">Следующее слово →</button><p class="hint">Нажми Enter, чтобы перейти дальше.</p>`;
+    area.innerHTML=`<div class="feedback ${correct?'good':'bad'}"><div class="feedback-title">${mark} ${label}</div><div class="translation-label">ПРАВИЛЬНЫЙ ПЕРЕВОД</div><div class="translation">${escapeHTML(word.ru)}</div>${chosen}<p class="feedback-note">${note}</p>${override}</div><button id="nextBtn" class="btn btn-primary next-btn">Следующее слово →</button><p class="hint">Нажми Enter, чтобы перейти дальше.</p>`;
     $('nextBtn').addEventListener('click',next);
     $('overrideBtn')?.addEventListener('click',overrideAnswer);
   }
