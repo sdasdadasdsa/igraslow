@@ -34,6 +34,13 @@ h1{font-size:clamp(29px,4.8vw,47px);letter-spacing:-.048em;margin:0 0 11px;line-
 .speak:hover{border-color:rgba(116,229,187,.45);color:var(--mint)}
 .speaker{font-size:16px;line-height:1}
 .answer-section{padding:14px 29px 30px}
+.mode-banner{display:inline-flex;align-items:center;border:1px solid rgba(116,229,187,.27);border-radius:999px;background:rgba(116,229,187,.07);color:#b7e7d7;padding:5px 13px;font-size:11px;font-weight:750;letter-spacing:.045em;margin-bottom:13px}
+.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:15px 0 12px}
+.choice{display:flex;min-height:67px;align-items:center;text-align:left;gap:13px;border:1px solid rgba(154,183,209,.23);border-radius:14px;background:rgba(6,16,29,.55);color:#e8f4ff;font-weight:650;font-size:15px;line-height:1.32;padding:14px;transition:.15s}
+.choice:hover{border-color:rgba(116,229,187,.5);background:rgba(66,129,130,.15)}
+.choice-num{display:grid;flex:none;place-items:center;width:29px;height:29px;border-radius:9px;background:rgba(137,177,210,.11);color:#a8c9dd;font-size:12px}
+.choice:hover .choice-num{color:var(--mint)}
+
 .field-label{display:block;color:#9fb2c5;font-size:13px;margin:0 0 10px;font-weight:650}
 .input-wrap{display:flex;align-items:center;background:rgba(5,13,25,.55);border:1px solid rgba(154,183,209,.2);border-radius:14px;transition:border-color .2s,box-shadow .2s}
 .input-wrap:focus-within{border-color:rgba(116,229,187,.75);box-shadow:0 0 0 3px rgba(116,229,187,.08)}
@@ -90,7 +97,7 @@ h1{font-size:clamp(29px,4.8vw,47px);letter-spacing:-.048em;margin:0 0 11px;line-
 .foot{margin:24px 0;text-align:center;color:#688096;font-size:12px}
 .no-speech{opacity:.4}
 @media(max-width:800px){.page{padding:20px 16px 55px}.topbar{margin-bottom:36px}.gamegrid{grid-template-columns:1fr}.side{display:grid;grid-template-columns:1fr 1fr}.main{border-radius:20px}.word-box{min-height:210px}.panel{padding:20px}}
-@media(max-width:520px){.topbar{gap:12px}.logo{font-size:18px}.logo-mark{width:34px;height:34px}.top-right{gap:5px}.chip{padding:6px 10px;font-size:11px}.reset-btn{padding:7px 4px}.hero-label{font-size:11px}h1{font-size:32px}.subtitle{font-size:13px}.gamegrid{margin-top:22px}.side{grid-template-columns:1fr}.panel{padding:21px}.card-top{padding:20px 20px 0}.word-box{min-height:194px;padding:26px 14px 12px}.word{font-size:clamp(34px,10vw,48px)}.answer-section{padding:10px 19px 22px}.actions{flex-direction:column}.btn-ghost{min-width:0}.btn{padding:14px}.answer-input{padding:15px}.center-screen{padding:35px 20px}}
+@media(max-width:520px){.topbar{gap:12px}.logo{font-size:18px}.logo-mark{width:34px;height:34px}.top-right{gap:5px}.chip{padding:6px 10px;font-size:11px}.reset-btn{padding:7px 4px}.hero-label{font-size:11px}h1{font-size:32px}.subtitle{font-size:13px}.gamegrid{margin-top:22px}.side{grid-template-columns:1fr}.panel{padding:21px}.card-top{padding:20px 20px 0}.word-box{min-height:194px;padding:26px 14px 12px}.word{font-size:clamp(34px,10vw,48px)}.answer-section{padding:10px 19px 22px}.actions{flex-direction:column}.choice-grid{grid-template-columns:1fr}.choice{min-height:52px;padding:12px}.btn-ghost{min-width:0}.btn{padding:14px}.answer-input{padding:15px}.center-screen{padding:35px 20px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -99,7 +106,7 @@ h1{font-size:clamp(29px,4.8vw,47px);letter-spacing:-.048em;margin:0 0 11px;line-
   <header class="topbar">
     <div class="logo"><div class="logo-mark">✦</div>LEXI <span>50</span></div>
     <div class="top-right">
-      <div class="chip">УРОВЕНЬ B1–B2 · v1.1</div>
+      <div class="chip">УРОВЕНЬ B1–B2 · v2.0</div>
       <div class="chip" id="bankCount">База слов</div>
       <button class="reset-btn" id="resetBtn" title="Начать эти же 50 слов заново">↻ Сначала</button>
     </div>
@@ -107,7 +114,7 @@ h1{font-size:clamp(29px,4.8vw,47px);letter-spacing:-.048em;margin:0 0 11px;line-
   <section aria-label="Введение">
     <div class="hero-label">АНГЛИЙСКИЙ • ТРЕНИРОВКА СЛОВ</div>
     <h1>50 слов. Пока не выучишь все.</h1>
-    <p class="subtitle">Переводи с английского на русский. Знакомые слова исчезают, незнакомые возвращаются. Никаких новых слов до победы.</p>
+    <p class="subtitle">Сначала выбирай перевод из четырёх вариантов, потом пиши перевод самостоятельно. Правильный письменный ответ убирает слово, ошибки повторяются.</p>
   </section>
   <div class="gamegrid">
     <main class="main" id="game" aria-live="polite"></main>
@@ -126,14 +133,14 @@ h1{font-size:clamp(29px,4.8vw,47px);letter-spacing:-.048em;margin:0 0 11px;line-
       <section class="panel">
         <h2>КАК ЭТО РАБОТАЕТ</h2>
         <ul class="info-list">
-          <li><div class="info-icon">✓</div><div><b>Правильный ответ</b><div>Слово убирается из этих 50 навсегда.</div></div></li>
-          <li><div class="info-icon">↻</div><div><b>Ошибка или «Не знаю»</b><div>Покажу перевод и верну слово в следующем круге.</div></div></li>
+          <li><div class="info-icon">①</div><div><b>Сначала выбор из 4</b><div>Разберись с переводами всех оставшихся слов. Пока ничего не исчезает.</div></div></li>
+          <li><div class="info-icon">②</div><div><b>Потом письменный перевод</b><div>Правильно написал — слово исчезло. Ошибка или «Не знаю» — новый круг с четырьмя вариантами.</div></div></li>
           <li><div class="info-icon">★</div><div><b>Все 50 выучены</b><div>Откроется следующая партия из большой базы.</div></div></li>
         </ul>
       </section>
     </aside>
   </div>
-  <p class="foot">Автосохранение на этом устройстве • Работает без интернета • Enter — проверить / дальше</p>
+  <p class="foot">Автосохранение • Без интернета • 1–4 — выбрать ответ • Enter — дальше</p>
 </div>
 <script>
 "use strict";
@@ -221,6 +228,17 @@ let data=load();
     s.feedback.kind='accepted';
     try{localStorage.setItem(KEY,JSON.stringify(data));}catch{}
   }
+})();
+(function migratePreviousGame(){
+  const g=data.session;
+  if(!g||g.mode==='choice'||g.mode==='typing')return;
+  g.mode='choice';g.choiceOptions=null;
+  if(g.phase!=='complete'){
+    const remaining=g.deck.filter(en=>!g.learned.includes(en));
+    if(!remaining.length)g.phase='complete';
+    else{g.queue=shuffle(remaining);g.index=0;g.pending=[];g.feedback=null;g.phase='question';}
+  }
+  try{localStorage.setItem(KEY,JSON.stringify(data));}catch(err){}
 })();
 function save(){ try {localStorage.setItem(KEY,JSON.stringify(data));}catch(err){console.warn('Сохранение недоступно:', err);} }
 function pickWords() {
