@@ -286,7 +286,7 @@ function validateState(stored){
     Number.isInteger(g.index)&&g.index>=0&&g.index<g.queue.length&&
     ['question','feedback','roundEnd','complete'].includes(g.phase);
   if(!valid){state.session=null;return state;}
-  g.mode=g.mode==='typing'?'typing':'choice';
+  if(g.mode!==undefined&&!['choice','typing'].includes(g.mode))g.mode='choice';
   if(g.phase==='feedback'&&!g.feedback){g.phase='question';}
   g.answers=Math.max(0,Number(g.answers)||0);
   g.mistakes=Math.max(0,Number(g.mistakes)||0);
@@ -302,7 +302,11 @@ function load(){
   }catch(e){console.warn('Не удалось прочитать localStorage:',e);}
   try{cookie=validateState(readCookieState());}
   catch(e){console.warn('Не удалось прочитать cookies:',e);}
-  if(local&&cookie)return cookie.__savedAt>local.__savedAt?cookie:local;
+  if(local&&cookie){
+    if(cookie.session&&!local.session)return cookie;
+    if(local.session&&!cookie.session)return local;
+    return cookie.__savedAt>local.__savedAt?cookie:local;
+  }
   return local||cookie||emptyData();
 }
 let data=load();
